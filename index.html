@@ -14,7 +14,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
 <style>
 
@@ -49,8 +48,6 @@ textarea{resize:vertical}
 .photo-item img{width:100%;display:block;max-height:260px;object-fit:contain}
 
 .photo-number{position:absolute;top:6px;left:6px;background:#174d3b;color:white;border-radius:20px;padding:5px 9px;font-size:12px}
-.scan-button{display:block;width:100%;padding:10px;background:#e7efeb;color:#174d3b;font-weight:bold;border-top:1px solid #ddd}
-.scan-status{font-size:12px;padding:7px;color:#555;text-align:center}
 
 .delete-photo{position:absolute;top:5px;right:5px;width:32px;height:32px;padding:0;border-radius:50%;background:#c62828;color:white;font-size:20px}
 
@@ -469,84 +466,76 @@ function ansicht(name){
 
 let belegBilder=[];
 
-async function bilderHinzufuegen(input){
-    const startIndex=belegBilder.length;
-    Array.from(input.files).forEach(file=>{
-        if(file.type.startsWith("image/"))belegBilder.push({datei:file,url:URL.createObjectURL(file),scanned:false});
-    });
-    input.value="";
-    vorschauAktualisieren();
-    // IMPORTANT: Do not start OpenCV automatically after camera capture.
-    // Keep the photo visible and the app responsive; scanning is manual via its button.
-    document.getElementById("status").textContent="Foto hinzugefügt. Du kannst den Scan bei Bedarf manuell starten.";
+function bilderHinzufuegen(input){
+
+    Array.from(input.files).forEach(file=>{
+
+        if(file.type.startsWith("image/"))belegBilder.push({datei:file,url:URL.createObjectURL(file)});
+
+    });
+
+    input.value="";
+
+    vorschauAktualisieren();
+
 }
+
+
 
 function vorschauAktualisieren(){
-    const container=document.getElementById("fotoVorschau");
-    container.innerHTML="";
-    belegBilder.forEach((bild,index)=>{
-        const div=document.createElement("div");div.className="photo-item";
-        const img=document.createElement("img");img.src=bild.url;
-        const nummer=document.createElement("span");nummer.className="photo-number";nummer.textContent=index+1;
-        const del=document.createElement("button");del.className="delete-photo";del.type="button";del.textContent="×";del.onclick=()=>bildLoeschen(index);
-        const scan=document.createElement("button");scan.className="scan-button";scan.type="button";
-        scan.textContent=bild.scanned?"✓ Gescannt – erneut scannen":"✂️ Automatisch zuschneiden";
-        scan.onclick=()=>belegAutomatischScannen(index);
-        const status=document.createElement("div");status.className="scan-status";status.textContent=bild.scanned?"Scan angewendet":"Foto unverändert";
-        div.append(img,nummer,del,scan,status);container.appendChild(div);
-    });
-    document.getElementById("pdfButton").disabled=belegBilder.length===0;
+
+    const container=document.getElementById("fotoVorschau");
+
+    container.innerHTML="";
+
+    belegBilder.forEach((bild,index)=>{
+
+        const div=document.createElement("div");
+
+        div.className="photo-item";
+
+        const img=document.createElement("img");
+
+        img.src=bild.url;
+
+        const nummer=document.createElement("span");
+
+        nummer.className="photo-number";
+
+        nummer.textContent=index+1;
+
+        const del=document.createElement("button");
+
+        del.className="delete-photo";
+
+        del.type="button";
+
+        del.textContent="×";
+
+        del.onclick=()=>bildLoeschen(index);
+
+        div.append(img,nummer,del);
+
+        container.appendChild(div);
+
+    });
+
+    document.getElementById("pdfButton").disabled=belegBilder.length===0;
+
 }
 
-let cvLadePromise=null;
-function opencvBereit(){
-    if(cvLadePromise)return cvLadePromise;
-    cvLadePromise=new Promise((resolve,reject)=>{
-        const timeout=setTimeout(()=>reject(new Error("Scanner-Bibliothek konnte nicht geladen werden. Internetverbindung prüfen.")),25000);
-        const check=()=>{
-            if(window.cv&&window.cv.Mat){clearTimeout(timeout);resolve(window.cv);}
-            else setTimeout(check,150);
-        };
-        check();
-    });
-    return cvLadePromise;
-}
-function bildLaden(url){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("Bild konnte nicht geladen werden."));img.src=url;});}
-function blobAlsDatei(blob,name){return new File([blob],name,{type:blob.type||"image/jpeg"});}
-function sortiereEcken(pts){
-    const sum=pts.map(p=>p.x+p.y),diff=pts.map(p=>p.y-p.x);
-    return [pts[sum.indexOf(Math.min(...sum))],pts[diff.indexOf(Math.min(...diff))],pts[sum.indexOf(Math.max(...sum))],pts[diff.indexOf(Math.max(...diff))]];
-}
-async function belegAutomatischScannen(index){
-    const status=document.getElementById("status");status.textContent="Beleg wird automatisch erkannt und zugeschnitten …";
-    let mats=[];
-    try{
-        const cv=await opencvBereit(),source=belegBilder[index],img=await bildLaden(source.url);
-        const ratio=Math.min(1,1600/Math.max(img.naturalWidth,img.naturalHeight)),w=Math.round(img.naturalWidth*ratio),h=Math.round(img.naturalHeight*ratio);
-        const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);
-        const src=cv.imread(canvas),gray=new cv.Mat(),blur=new cv.Mat(),edges=new cv.Mat(),contours=new cv.MatVector(),hierarchy=new cv.Mat();mats=[src,gray,blur,edges,contours,hierarchy];
-        cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);cv.GaussianBlur(gray,blur,new cv.Size(5,5),0);cv.Canny(blur,edges,50,150);cv.findContours(edges,contours,hierarchy,cv.RETR_LIST,cv.CHAIN_APPROX_SIMPLE);
-        let best=null,areaMax=0;
-        for(let i=0;i<contours.size();i++){
-            const c=contours.get(i),approx=new cv.Mat();cv.approxPolyDP(c,approx,0.02*cv.arcLength(c,true),true);
-            if(approx.rows===4&&cv.isContourConvex(approx)){const area=cv.contourArea(approx);if(area>areaMax&&area>w*h*0.08){let pts=[];for(let j=0;j<4;j++)pts.push({x:approx.data32S[j*2],y:approx.data32S[j*2+1]});best=pts;areaMax=area;}}
-            approx.delete();c.delete();
-        }
-        if(!best){status.textContent="Kanten nicht sicher erkannt – Original bleibt erhalten.";alert("Belegkanten nicht sicher erkannt. Das Originalfoto bleibt erhalten.");return;}
-        const [tl,tr,br,bl]=sortiereEcken(best);
-        const ow=Math.round(Math.max(Math.hypot(br.x-bl.x,br.y-bl.y),Math.hypot(tr.x-tl.x,tr.y-tl.y))),oh=Math.round(Math.max(Math.hypot(tr.x-br.x,tr.y-br.y),Math.hypot(tl.x-bl.x,tl.y-bl.y)));
-        const srcPts=cv.matFromArray(4,1,cv.CV_32FC2,[tl.x,tl.y,tr.x,tr.y,br.x,br.y,bl.x,bl.y]),dstPts=cv.matFromArray(4,1,cv.CV_32FC2,[0,0,ow-1,0,ow-1,oh-1,0,oh-1]);mats.push(srcPts,dstPts);
-        const transform=cv.getPerspectiveTransform(srcPts,dstPts),warped=new cv.Mat();mats.push(transform,warped);
-        cv.warpPerspective(src,warped,transform,new cv.Size(ow,oh),cv.INTER_LINEAR,cv.BORDER_CONSTANT,new cv.Scalar(255,255,255,255));
-        const out=document.createElement("canvas");cv.imshow(out,warped);const blob=await new Promise(r=>out.toBlob(r,"image/jpeg",0.94));if(!blob)throw new Error("Scan konnte nicht erstellt werden.");
-        URL.revokeObjectURL(source.url);source.datei=blobAlsDatei(blob,"scan_"+(index+1)+".jpg");source.url=URL.createObjectURL(blob);source.scanned=true;
-        vorschauAktualisieren();status.textContent="Scan erfolgreich. Beleg automatisch zugeschnitten.";
-    }catch(err){console.error(err);status.textContent="Scannerfehler – Original bleibt erhalten.";alert("Scan nicht möglich. Originalfoto bleibt erhalten.\n\n"+err.message);}
-    finally{mats.forEach(m=>{try{m.delete();}catch(e){}});}
-}
+
+
 function bildLoeschen(index){
-    URL.revokeObjectURL(belegBilder[index].url);belegBilder.splice(index,1);vorschauAktualisieren();
+
+    URL.revokeObjectURL(belegBilder[index].url);
+
+    belegBilder.splice(index,1);
+
+    vorschauAktualisieren();
+
 }
+
 
 
 // Konten hinzufügen
