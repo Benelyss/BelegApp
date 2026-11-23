@@ -476,10 +476,9 @@ async function bilderHinzufuegen(input){
     });
     input.value="";
     vorschauAktualisieren();
-    // Automatic scan attempt for every newly added photo; originals stay intact if detection fails.
-    for(let i=startIndex;i<belegBilder.length;i++){
-        await belegAutomatischScannen(i);
-    }
+    // IMPORTANT: Do not start OpenCV automatically after camera capture.
+    // Keep the photo visible and the app responsive; scanning is manual via its button.
+    document.getElementById("status").textContent="Foto hinzugefügt. Du kannst den Scan bei Bedarf manuell starten.";
 }
 
 function vorschauAktualisieren(){
