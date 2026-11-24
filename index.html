@@ -19,15 +19,15 @@
 
 *{box-sizing:border-box}
 
-body{margin:0;padding:15px;font-family:Arial,sans-serif;background:#f2f4f3;color:#222}
+body{margin:0;padding:5px;font-family:Arial,sans-serif;background:#f2f4f3;color:#222}
 
-.container{max-width:650px;margin:auto;background:white;border-radius:14px;overflow:hidden;box-shadow:0 2px 10px #0001}
+.container{width:100%;max-width:900px;margin:0 auto;background:white;border-radius:14px;overflow:hidden;box-shadow:0 2px 10px #0001}
 
-header{background:#174d3b;color:white;padding:22px;font-size:24px;font-weight:bold}
+header{background:#174d3b;color:white;padding:9px 14px;font-size:18px;font-weight:bold}
 
-main{padding:18px}
+main{padding:10px}
 
-h2{margin-top:25px;font-size:18px}
+h2{margin-top:12px;margin-bottom:8px;font-size:17px}
 
 button{border:none;border-radius:8px;padding:13px;font-size:16px;cursor:pointer}
 
@@ -41,11 +41,11 @@ input,select,textarea{width:100%;padding:12px;font-size:16px;border:1px solid #c
 
 textarea{resize:vertical}
 
-.photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:15px}
+.photo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
 
 .photo-item{position:relative;border:1px solid #ddd;border-radius:8px;overflow:hidden;background:#eee}
 
-.photo-item img{width:100%;display:block;max-height:260px;object-fit:contain}
+.photo-item img{width:100%;display:block;max-height:220px;object-fit:contain}
 
 .crop-photo{width:100%;border-radius:0;background:#e7efeb;color:#174d3b;font-weight:bold;padding:10px;font-size:14px}\n.crop-photo:disabled{opacity:.55}\n.photo-number{position:absolute;top:6px;left:6px;background:#174d3b;color:white;border-radius:20px;padding:5px 9px;font-size:12px}
 
@@ -72,7 +72,7 @@ textarea{resize:vertical}
 
 .small{font-size:13px;color:#666;margin-top:8px}
 
-.nav{display:flex;gap:8px;margin:10px 0 20px}
+.nav{display:flex;gap:8px;margin:6px 0 10px}
 
 .nav button{flex:1;background:#e7efeb;color:#174d3b;font-weight:bold}
 
@@ -135,7 +135,7 @@ textarea{resize:vertical}
 
 <div class="nav">
 
-<button id="navNew" class="active" onclick="ansicht('neu')">＋ Neuer Beleg</button>
+<button id="navNew" class="active" onclick="quittungScannen()">📷 Quittung scannen</button>
 
 <button id="navArchive" onclick="ansicht('archiv')">▣ Archiv</button>
 
@@ -147,11 +147,9 @@ textarea{resize:vertical}
 
 <div id="viewNeu" class="view active">
 
-<h2>Beleg fotografieren</h2>
+<h2>Quittung scannen</h2>
 
 <div class="photo-buttons">
-
-<button onclick="document.getElementById('kamera').click()">📷 Kamera öffnen</button>
 
 <button onclick="document.getElementById('galerie').click()">🖼 Fotos auswählen</button>
 
@@ -461,6 +459,11 @@ document.getElementById("datum").value=heutigesDatumLokal();
 
 // Ansicht wechseln
 
+function quittungScannen(){
+    ansicht("neu");
+    document.getElementById("kamera").click();
+}
+
 function ansicht(name){
 
     document.getElementById("viewNeu").classList.toggle("active",name==="neu");
@@ -477,44 +480,49 @@ function ansicht(name){
 
 
 
-// Bilderhandling – Scanner separat geladen, V4-PDF/Archiv bleiben unverändert
-
+// Bilderhandling – jeder neue Beleg wird automatisch zugeschnitten
 let belegBilder=[];
-
 function bilderHinzufuegen(input){
+    const neueBilder=[];
     Array.from(input.files).forEach(file=>{
         if(file.type.startsWith("image/")){
-            belegBilder.push({datei:file,url:URL.createObjectURL(file),gescannt:false});
+            const bild={datei:file,url:URL.createObjectURL(file),gescannt:false,scanLaeuft:true,scanFehlgeschlagen:false};
+            belegBilder.push(bild);
+            neueBilder.push(bild);
         }
     });
     input.value="";
     vorschauAktualisieren();
+    neueBilder.forEach(bild=>belegAutomatischZuschneiden(bild));
 }
 
-async function belegAutomatischZuschneiden(index,button){
-    const bild=belegBilder[index];
-    if(!bild || button.disabled)return;
-    const alterText=button.textContent;
-    button.disabled=true;
-    button.textContent="Zuschneiden läuft …";
+async function belegAutomatischZuschneiden(bild){
+    if(!bild || bild.gescannt || bild.scanLaeuft===false && bild.scanFehlgeschlagen)return;
+    bild.scanLaeuft=true;
+    vorschauAktualisieren();
     try{
         const modul=await import("./scanner.js");
         const ergebnis=await modul.scanReceiptImage(bild.datei);
         if(!ergebnis || !ergebnis.blob)throw new Error("Der Scanner hat kein Bild zurückgegeben.");
         if(ergebnis.detected===false){
-            button.textContent="Keine Ecken erkannt – Original behalten";
-            button.disabled=false;
+            bild.scanLaeuft=false;
+            bild.scanFehlgeschlagen=true;
+            vorschauAktualisieren();
             return;
         }
         const neueDatei=new File([ergebnis.blob],"beleg-scan.jpg",{type:"image/jpeg",lastModified:Date.now()});
         const neueUrl=URL.createObjectURL(neueDatei);
         URL.revokeObjectURL(bild.url);
-        belegBilder[index]={...bild,datei:neueDatei,url:neueUrl,gescannt:true};
+        bild.datei=neueDatei;
+        bild.url=neueUrl;
+        bild.gescannt=true;
+        bild.scanLaeuft=false;
         vorschauAktualisieren();
     }catch(error){
-        button.disabled=false;
-        button.textContent=alterText;
-        alert("Zuschneiden nicht möglich: "+(error.message||error)+"\nDas Originalfoto bleibt erhalten.");
+        bild.scanLaeuft=false;
+        bild.scanFehlgeschlagen=true;
+        console.error("Automatischer Zuschnitt fehlgeschlagen:",error);
+        vorschauAktualisieren();
     }
 }
 
@@ -534,16 +542,13 @@ function vorschauAktualisieren(){
         del.type="button";
         del.textContent="×";
         del.onclick=()=>bildLoeschen(index);
-        const crop=document.createElement("button");
-        crop.className="crop-photo";
-        crop.type="button";
-        crop.textContent=bild.gescannt?"✓ Zugeschnitten":"✂️ Automatisch zuschneiden";
-        crop.disabled=!!bild.gescannt;
-        crop.onclick=()=>belegAutomatischZuschneiden(index,crop);
-        div.append(img,nummer,del,crop);
+        const hinweis=document.createElement("div");
+        hinweis.className="crop-photo";
+        hinweis.textContent=bild.gescannt?"✓ Automatisch zugeschnitten":bild.scanLaeuft?"Beleg wird automatisch erkannt …":bild.scanFehlgeschlagen?"Originalfoto übernommen – keine Erkennung":"Foto bereit";
+        div.append(img,nummer,del,hinweis);
         container.appendChild(div);
     });
-    document.getElementById("pdfButton").disabled=belegBilder.length===0;
+    document.getElementById("pdfButton").disabled=belegBilder.length===0 || belegBilder.some(b=>b.scanLaeuft);
 }
 
 function bildLoeschen(index){
@@ -730,14 +735,9 @@ async function pdfErstellen(){
 
 
         pdf.setProperties({title:datum+"_"+konto+"-"+kontoName+"_"+lieferant,subject:"Beleg",author:"BelegApp"});
-
-        const kontoPart=dateiNameBereinigen(konto+"-"+kontoName);
-
-        const lieferantPart=dateiNameBereinigen(lieferant);
-
-        const betragPart=Number(betrag).toFixed(2);
-
-        const filename=datum+"_"+kontoPart+"_"+lieferantPart+"_"+betragPart+".-"+waehrung+".pdf";
+        const lieferantPart=dateiNameBereinigen(lieferant);
+        const betragPart=Number(betrag).toFixed(2);
+        const filename=datum+"_"+konto+"-"+lieferantPart+"_"+betragPart+"-"+waehrung+".pdf";
 
 
 
@@ -831,6 +831,16 @@ async function pdfErstellen(){
 
 
 
+// Einheitlicher Dateiname für neue und bereits gespeicherte Belege
+function dateinameFuerRecord(r){
+    const datum=r.date || "ohne-Datum";
+    const konto=dateiNameBereinigen(String(r.account || "Konto"));
+    const lieferant=dateiNameBereinigen(String(r.supplier || "Lieferant"));
+    const betrag=Number(r.amount || 0).toFixed(2);
+    const waehrung=dateiNameBereinigen(String(r.currency || "CHF"));
+    return datum+"_"+konto+"-"+lieferant+"_"+betrag+"-"+waehrung+".pdf";
+}
+
 // Archiv als ZIP mit Jahr/Monat-Ordnern exportieren
 async function archivExportieren(){
     const button=document.getElementById("exportButton");
@@ -844,7 +854,7 @@ async function archivExportieren(){
         records.forEach(r=>{
             const year=r.year || (r.date||"").slice(0,4);
             const month=r.month || (r.date||"").slice(0,7);
-            const filename=r.filename || "Beleg.pdf";
+            const filename=dateinameFuerRecord(r);
             if(r.pdfBlob) zip.file("Belege/"+year+"/"+month+"/"+filename,r.pdfBlob);
         });
         const blob=await zip.generateAsync({type:"blob",compression:"DEFLATE",compressionOptions:{level:6}});
