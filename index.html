@@ -883,19 +883,18 @@ async function archivAnzeigen(){
 
         }
 
-        records.sort((a,b)=>b.date.localeCompare(a.date));
-
-        const grouped={};
-
-        records.forEach(r=>{
-
-            if(!grouped[r.year])grouped[r.year]={};
-
-            if(!grouped[r.year][r.month])grouped[r.year][r.month]=[];
-
-            grouped[r.year][r.month].push(r);
-
-        });
+        // Archiv nach tatsächlichem Speicherzeitpunkt sortieren,
+        // nicht nach dem möglicherweise älteren Belegdatum.
+        records.sort((a,b)=>(b.created||b.date||"").localeCompare(a.created||a.date||""));
+        const grouped={};
+        records.forEach(r=>{
+            const gespeichert=r.created ? new Date(r.created) : new Date((r.date||"")+"T12:00:00");
+            const year=String(gespeichert.getFullYear());
+            const month=year+"-"+String(gespeichert.getMonth()+1).padStart(2,"0");
+            if(!grouped[year])grouped[year]={};
+            if(!grouped[year][month])grouped[year][month]=[];
+            grouped[year][month].push(r);
+        });
 
         container.innerHTML="";
 
