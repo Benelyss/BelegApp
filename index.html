@@ -106,12 +106,27 @@ textarea{resize:vertical}
 
 .empty{text-align:center;color:#777;padding:25px}
 
+
+#pdfViewer{display:none;position:fixed;inset:0;background:#fff;z-index:9999;flex-direction:column}
+#pdfViewer.active{display:flex}
+#pdfViewerBar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#174d3b;color:#fff}
+#pdfViewerBar button{background:#fff;color:#174d3b;font-weight:bold;padding:9px 14px}
+#pdfViewerFrame{border:0;flex:1;width:100%;min-height:0}
+
 </style>
 
 </head>
 
 <body>
 
+
+<div id="pdfViewer" aria-label="PDF-Anzeige">
+  <div id="pdfViewerBar">
+    <strong>Beleg anzeigen</strong>
+    <button type="button" onclick="pdfViewerSchliessen()">Schliessen ✕</button>
+  </div>
+  <iframe id="pdfViewerFrame" title="Beleg PDF"></iframe>
+</div>
 <div class="container">
 
 <header>BelegApp</header>
@@ -769,18 +784,8 @@ async function pdfErstellen(){
 
 
         await speichernBeleg(record);
-
-
-
-        // PDF zusätzlich herunterladen
-
-        pdf.save(filename);
-
-
-
-        status.textContent="Gespeichert und PDF heruntergeladen: "+filename;
-
-        alert("Beleg wurde erstellt und im lokalen Archiv gespeichert.");
+        // PDF bleibt im lokalen Archiv; kein automatischer Download auf iOS.
+        status.textContent="Beleg gespeichert: "+filename;
 
 
 
@@ -992,29 +997,32 @@ async function archivAnzeigen(){
 
 
 
+let aktuellAngezeigtePdfUrl=null;
+
 async function belegOeffnen(id){
-    // Safari auf iPhone blockiert window.open oft, wenn es erst nach await aufgerufen wird.
-    // Deshalb das neue Fenster direkt beim Antippen öffnen und erst danach IndexedDB lesen.
-    const win=window.open("about:blank","_blank");
-    if(!win){
-        alert("Safari hat das Öffnen des PDFs blockiert. Bitte Pop-ups für diese Website erlauben und erneut versuchen.");
-        return;
-    }
     try{
         const records=await alleBelege();
         const record=records.find(r=>r.id===id);
         if(!record || !record.pdfBlob){
-            win.close();
             alert("Das PDF wurde im Archiv nicht gefunden.");
             return;
         }
-        const url=URL.createObjectURL(record.pdfBlob);
-        win.location.href=url;
-        setTimeout(()=>URL.revokeObjectURL(url),120000);
+        if(aktuellAngezeigtePdfUrl) URL.revokeObjectURL(aktuellAngezeigtePdfUrl);
+        aktuellAngezeigtePdfUrl=URL.createObjectURL(record.pdfBlob);
+        document.getElementById("pdfViewerFrame").src=aktuellAngezeigtePdfUrl;
+        document.getElementById("pdfViewer").classList.add("active");
     }catch(err){
         console.error(err);
-        win.close();
         alert("PDF konnte nicht geöffnet werden. Bitte nochmals versuchen.");
+    }
+}
+
+function pdfViewerSchliessen(){
+    document.getElementById("pdfViewer").classList.remove("active");
+    document.getElementById("pdfViewerFrame").src="about:blank";
+    if(aktuellAngezeigtePdfUrl){
+        URL.revokeObjectURL(aktuellAngezeigtePdfUrl);
+        aktuellAngezeigtePdfUrl=null;
     }
 }
 
