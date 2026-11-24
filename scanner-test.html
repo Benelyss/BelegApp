@@ -9,7 +9,7 @@ img{max-width:100%;display:block;margin:12px 0;border:1px solid #ddd}#status{pad
 <input id="photo" type="file" accept="image/*" capture="environment">
 <div><button id="run" disabled>Beleg automatisch zuschneiden</button></div>
 <p id="status">Noch kein Foto ausgewählt.</p><h3>Original</h3><img id="original" hidden><h3>Ergebnis</h3><img id="result" hidden>
-</main><script src="scanner_fixed.js"></script><script>
+</main><script src="scanner.js"></script><script>
 const input=document.getElementById('photo'),run=document.getElementById('run'),status=document.getElementById('status'),original=document.getElementById('original'),result=document.getElementById('result');
 let file=null,originalUrl=null,resultUrl=null;
 input.addEventListener('change',()=>{
