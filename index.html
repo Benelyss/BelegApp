@@ -993,21 +993,29 @@ async function archivAnzeigen(){
 
 
 async function belegOeffnen(id){
-
-    const records=await alleBelege();
-
-    const record=records.find(r=>r.id===id);
-
-    if(!record)return;
-
-    const url=URL.createObjectURL(record.pdfBlob);
-
-    const win=window.open(url,"_blank");
-
-    if(!win)alert("Pop-up blockiert. Bitte Pop-ups erlauben oder erneut klicken.");
-
-    setTimeout(()=>URL.revokeObjectURL(url),60000);
-
+    // Safari auf iPhone blockiert window.open oft, wenn es erst nach await aufgerufen wird.
+    // Deshalb das neue Fenster direkt beim Antippen öffnen und erst danach IndexedDB lesen.
+    const win=window.open("about:blank","_blank");
+    if(!win){
+        alert("Safari hat das Öffnen des PDFs blockiert. Bitte Pop-ups für diese Website erlauben und erneut versuchen.");
+        return;
+    }
+    try{
+        const records=await alleBelege();
+        const record=records.find(r=>r.id===id);
+        if(!record || !record.pdfBlob){
+            win.close();
+            alert("Das PDF wurde im Archiv nicht gefunden.");
+            return;
+        }
+        const url=URL.createObjectURL(record.pdfBlob);
+        win.location.href=url;
+        setTimeout(()=>URL.revokeObjectURL(url),120000);
+    }catch(err){
+        console.error(err);
+        win.close();
+        alert("PDF konnte nicht geöffnet werden. Bitte nochmals versuchen.");
+    }
 }
 
 
