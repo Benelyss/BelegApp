@@ -113,6 +113,29 @@ textarea{resize:vertical}
 #pdfViewerBar button{background:#fff;color:#174d3b;font-weight:bold;padding:9px 14px}
 #pdfViewerFrame{border:0;flex:1;width:100%;min-height:0}
 
+
+/* Kompaktere Handyansicht */
+@media(max-width:600px){
+  body{padding:0}
+  .container{border-radius:0;min-height:100vh;box-shadow:none}
+  header{padding:6px 12px;font-size:16px}
+  main{padding:7px}
+  .nav{margin:4px 0 7px;gap:6px}
+  .nav button{padding:9px 7px;font-size:14px}
+  h2{margin:8px 0 5px;font-size:16px}
+  label{margin:8px 0 4px;font-size:14px}
+  input,select,textarea{padding:9px;font-size:16px}
+  #datum{height:38px;padding:7px 9px;font-size:16px}
+  textarea{min-height:54px}
+  .photo-buttons{margin-bottom:7px}
+  .photo-buttons button{padding:9px;font-size:14px}
+  .photo-grid{margin-top:6px;gap:6px}
+  .photo-item img{max-height:150px}
+  .small{margin:5px 0;font-size:12px}
+  #pdfButton{margin-top:10px;padding:12px}
+  #status{margin-top:6px;font-size:13px}
+}
+
 </style>
 
 </head>
@@ -164,8 +187,6 @@ textarea{resize:vertical}
 <p class="small">Mehrere Fotos sind möglich. Fotos mit X entfernen.</p>
 
 
-
-<h2>Belegdaten</h2>
 
 <label for="datum">Belegdatum</label>
 
@@ -315,10 +336,6 @@ textarea{resize:vertical}
 
 
 
-<label for="bemerkung">Bemerkung (optional)</label>
-
-<textarea id="bemerkung" rows="3" placeholder="Zusätzliche Informationen"></textarea>
-
 
 
 <button id="pdfButton" onclick="pdfErstellen()" disabled>📄 PDF erstellen &amp; archivieren</button>
@@ -465,17 +482,19 @@ function quittungScannen(){
 }
 
 function ansicht(name){
-
-    document.getElementById("viewNeu").classList.toggle("active",name==="neu");
-
-    document.getElementById("viewArchiv").classList.toggle("active",name==="archiv");
-
-    document.getElementById("navNew").classList.toggle("active",name==="neu");
-
-    document.getElementById("navArchive").classList.toggle("active",name==="archiv");
-
-    if(name==="archiv")archivAnzeigen();
-
+    const navNew=document.getElementById("navNew");
+    document.getElementById("viewNeu").classList.toggle("active",name==="neu");
+    document.getElementById("viewArchiv").classList.toggle("active",name==="archiv");
+    navNew.classList.toggle("active",name==="neu");
+    document.getElementById("navArchive").classList.toggle("active",name==="archiv");
+    if(name==="archiv"){
+        navNew.textContent="← Zurück";
+        navNew.onclick=()=>ansicht("neu");
+        archivAnzeigen();
+    }else{
+        navNew.textContent="📷 Quittung scannen";
+        navNew.onclick=quittungScannen;
+    }
 }
 
 
@@ -785,7 +804,8 @@ async function pdfErstellen(){
 
         await speichernBeleg(record);
         // PDF bleibt im lokalen Archiv; kein automatischer Download auf iOS.
-        status.textContent="Beleg gespeichert: "+filename;
+        status.textContent="Beleg gespeichert.";
+        window.scrollTo(0,0);
 
 
 
