@@ -1,30 +1,62 @@
 <!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BelegApp – Scanner-Test</title>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BelegApp – Scanner-Test</title>
 <style>
-body{font:16px Arial,sans-serif;background:#f2f4f3;margin:0;padding:16px;color:#222}main{max-width:600px;margin:auto;background:white;padding:18px;border-radius:14px}
-button,input{font:inherit;margin:8px 0;padding:12px}button{background:#176b50;color:white;border:0;border-radius:8px}button:disabled{opacity:.5}
-img{max-width:100%;display:block;margin:12px 0;border:1px solid #ddd}#status{padding:12px;background:#eee;border-radius:8px;white-space:pre-wrap}
-</style></head><body><main>
-<h2>BelegScanner – Test</h2><p>Foto aufnehmen oder auswählen. Die Erkennung startet erst nach deinem Klick.</p>
+*{box-sizing:border-box}body{font:16px Arial,sans-serif;background:#f3f5f4;color:#222;margin:0;padding:16px}
+main{max-width:620px;margin:auto;background:#fff;padding:18px;border-radius:14px}
+button,input{font:inherit;margin:8px 0;padding:12px}button{border:0;border-radius:8px;background:#176b50;color:#fff;width:100%}
+button:disabled{opacity:.45}img{display:block;max-width:100%;height:auto;margin:12px auto;border:1px solid #ddd}
+#status{padding:12px;border-radius:8px;background:#eef1ef;white-space:pre-wrap}
+</style>
+</head>
+<body><main>
+<h2>BelegApp – Scanner-Test</h2>
+<p>1. Foto aufnehmen oder auswählen. 2. Zuschneiden starten.</p>
 <input id="photo" type="file" accept="image/*" capture="environment">
-<div><button id="run" disabled>Beleg automatisch zuschneiden</button></div>
-<p id="status">Noch kein Foto ausgewählt.</p><h3>Original</h3><img id="original" hidden><h3>Ergebnis</h3><img id="result" hidden>
-</main><script src="scanner.js"></script><script>
-const input=document.getElementById('photo'),run=document.getElementById('run'),status=document.getElementById('status'),original=document.getElementById('original'),result=document.getElementById('result');
-let file=null,originalUrl=null,resultUrl=null;
-input.addEventListener('change',()=>{
- file=input.files&&input.files[0]; if(!file)return;
- if(originalUrl)URL.revokeObjectURL(originalUrl); if(resultUrl)URL.revokeObjectURL(resultUrl);
- originalUrl=URL.createObjectURL(file); original.src=originalUrl; original.hidden=false; result.hidden=true;
- run.disabled=false; status.textContent='Foto übernommen. Noch nicht zugeschnitten.';
+<button id="scan" disabled>Beleg automatisch zuschneiden</button>
+<div id="status">Noch kein Foto ausgewählt.</div>
+<h3>Originalfoto</h3><img id="before" hidden>
+<h3>Ergebnis</h3><img id="after" hidden>
+</main>
+<script type="module">
+import { scanReceiptImage } from "./scanner.js";
+const input=document.getElementById("photo");
+const button=document.getElementById("scan");
+const status=document.getElementById("status");
+const before=document.getElementById("before");
+const after=document.getElementById("after");
+let selectedFile=null, beforeUrl=null, afterUrl=null;
+
+input.addEventListener("change",()=>{
+  selectedFile=input.files?.[0]||null;
+  if(!selectedFile)return;
+  if(beforeUrl)URL.revokeObjectURL(beforeUrl);
+  if(afterUrl)URL.revokeObjectURL(afterUrl);
+  beforeUrl=URL.createObjectURL(selectedFile);
+  before.src=beforeUrl; before.hidden=false; after.hidden=true;
+  status.textContent="Foto übernommen. Bereit zum Zuschneiden.";
+  button.disabled=false;
 });
-run.addEventListener('click',async()=>{
- if(!file)return; run.disabled=true; status.textContent='Erkennung läuft. Bitte kurz warten …';
- try {
-   const scan=await BelegScanner.scan(file);
-   if(resultUrl)URL.revokeObjectURL(resultUrl); resultUrl=URL.createObjectURL(scan.blob);
-   result.src=resultUrl; result.hidden=false; status.textContent=scan.message;
- } catch(e) { status.textContent='Fehler: '+(e.message||e); }
- finally { run.disabled=false; }
+
+button.addEventListener("click",async()=>{
+  if(!selectedFile)return;
+  button.disabled=true;
+  status.textContent="Erkennung läuft …";
+  try{
+    const result=await scanReceiptImage(selectedFile);
+    if(afterUrl)URL.revokeObjectURL(afterUrl);
+    afterUrl=URL.createObjectURL(result.blob);
+    after.src=afterUrl; after.hidden=false;
+    status.textContent=result.detected
+      ? `Beleg erkannt und zugeschnitten (${result.width} × ${result.height} Pixel).`
+      : "Keine sichere automatische Erkennung. Das Ergebnis bitte kontrollieren; bei Bedarf Original verwenden.";
+  }catch(error){
+    status.textContent="Scanner-Fehler: "+(error?.message||String(error));
+  }finally{
+    button.disabled=false;
+  }
 });
 </script></body></html>
