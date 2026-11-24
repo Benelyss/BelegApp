@@ -125,7 +125,7 @@ textarea{resize:vertical}
   h2{margin:8px 0 5px;font-size:16px}
   label{margin:8px 0 4px;font-size:14px}
   input,select,textarea{padding:9px;font-size:16px}
-  #datum{height:38px;padding:7px 9px;font-size:16px}
+  #datum{display:block;width:100%;max-width:100%;min-width:0;height:38px;padding:9px;font-size:16px;box-sizing:border-box}
   textarea{min-height:54px}
   .photo-buttons{margin-bottom:7px}
   .photo-buttons button{padding:9px;font-size:14px}
@@ -701,10 +701,7 @@ async function pdfErstellen(){
 
     const waehrung=document.getElementById("waehrung").value;
 
-    const bemerkung=document.getElementById("bemerkung").value.trim();
-
-
-
+    const bemerkung="";
     if(!datum){alert("Bitte Belegdatum eingeben.");return;}
 
     if(!konto||konto==="NEU"){alert("Bitte Konto auswählen.");return;}
@@ -826,8 +823,6 @@ async function pdfErstellen(){
         document.getElementById("betrag").value="";
 
         document.getElementById("waehrung").value="CHF";
-
-        document.getElementById("bemerkung").value="";
 
         document.getElementById("neuesKonto").style.display="none";
 
